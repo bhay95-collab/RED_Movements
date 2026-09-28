@@ -346,7 +346,7 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
     <!-- ROTATIONS -->
     <section class="view" id="view-rotations">
       <div class="viewhead"><div><h2>Rotation Planner</h2><div class="vsub">Who is working in each role, in each pay cycle. Plan ahead, and see where leave or over-allocation gets in the way.</div></div>
-        <div class="spacer"></div><button class="btn primary" onclick="openRotation(null)">+ Add assignment</button></div>
+        <div class="spacer"></div><button class="btn" onclick="openRoll()">Roll forward</button><button class="btn primary" onclick="openRotation(null)">+ Add assignment</button></div>
       <div class="card"><div class="ctrlrow">
         <div class="field" style="min-width:230px"><label>Pay cycle</label><select id="rotCycle" onchange="renderRotations()"></select></div>
         <div class="field" style="min-width:190px"><label>Team</label><select id="rotTeam" onchange="renderRotations()"></select></div>
@@ -598,6 +598,27 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
       <div class="spacer"></div>
       <button class="btn" onclick="closeModal('rotModal')">Cancel</button>
       <button class="btn primary" onclick="saveRotation()">Save assignment</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROLL FORWARD MODAL -->
+<div class="modal-bg" id="rollModal">
+  <div class="modal" style="max-width:860px">
+    <h3>Roll forward rotations</h3>
+    <div class="msub" id="rollSource"></div>
+    <div class="grid2">
+      <div class="field"><label>New block starts</label><input type="date" id="roll_start" onchange="renderRollPreview()"></div>
+      <div class="field"><label>New block ends (blank = ongoing)</label><input type="date" id="roll_end" onchange="renderRollPreview()"></div>
+      <div class="field full"><label style="display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12.5px"><input type="checkbox" id="roll_close" checked onchange="renderRollPreview()"> End the current assignments the day before the new block starts</label></div>
+    </div>
+    <div class="hint" style="margin:12px 0 6px">Each row copies one current assignment. Change the person to rotate someone in, adjust FTE, or untick a row to leave it out.</div>
+    <div id="rollPreview"></div>
+    <div class="validation-panel is-clean" id="rollValidation"><div class="vh">Validation ready</div></div>
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button class="btn" onclick="closeModal('rollModal')">Cancel</button>
+      <button class="btn primary" onclick="applyRoll()">Create new block</button>
     </div>
   </div>
 </div>
@@ -1877,8 +1898,18 @@ function deleteStaff(){ if(editingStaffIdx===null) return; if(!confirm('Delete t
 let editingRotId=null;
 function rotInRange(a,cs,ce){ const st=parseDate(a.start), en=parseDate(a.end); return st!==null&&st<=ce&&(en===null||en>=cs); }
 function rotRegisterFTE(name){ return r2(state.staff.filter(s=>str(s.name)===str(name)&&str(s.active)!=='No'&&str(s.empType)!=='Casual').reduce((a,s)=>a+num(s.subFTE),0)); }
-function rotPersonLoad(name,cs,ce,exceptId){ return r2(state.rotations.filter(a=>str(a.staff)===str(name)&&str(a.id)!==str(exceptId||'')&&rotInRange(a,cs,ce)).reduce((t,a)=>t+num(a.fte),0)); }
-function rotRoleLoad(roleId,cs,ce,exceptId){ return r2(state.rotations.filter(a=>str(a.roleId)===str(roleId)&&str(a.id)!==str(exceptId||'')&&rotInRange(a,cs,ce)).reduce((t,a)=>t+num(a.fte),0)); }
+// Load in a pay cycle = the busiest day in it. Two assignments that hand over mid-cycle
+// (one ends, the next starts) do not overlap on any day, so they are not double counted.
+function rotPeakLoad(list,cs,ce){
+  let peak=0;
+  for(let d=cs;d<=ce;d+=MS_DAY){
+    let t=0; list.forEach(a=>{ const st=parseDate(a.start), en=parseDate(a.end); if(st!==null&&st<=d&&(en===null||en>=d)) t+=num(a.fte); });
+    if(t>peak) peak=t;
+  }
+  return r2(peak);
+}
+function rotPersonLoad(name,cs,ce,exceptId){ return rotPeakLoad(state.rotations.filter(a=>str(a.staff)===str(name)&&str(a.id)!==str(exceptId||'')),cs,ce); }
+function rotRoleLoad(roleId,cs,ce,exceptId){ return rotPeakLoad(state.rotations.filter(a=>str(a.roleId)===str(roleId)&&str(a.id)!==str(exceptId||'')),cs,ce); }
 function rotAbsences(name,cs,ce){ return state.movements.filter(m=>str(m.staff)===str(name)&&['Leave','Secondment Out'].includes(str(m.type))&&str(m.archived).toLowerCase()!=='yes'&&inCycle(m,cs,ce)); }
 function rotCover(name,cs,ce){ return state.movements.filter(m=>str(m.owner)===str(name)&&COVER_TYPES.includes(str(m.type))&&str(m.archived).toLowerCase()!=='yes'&&inCycle(m,cs,ce)); }
 function rotFlags(a,cs,ce){
@@ -1897,7 +1928,7 @@ function rotFlags(a,cs,ce){
 function rotRoleCycle(role,cs,ce){
   const list=state.rotations.filter(a=>str(a.roleId)===role.id&&rotInRange(a,cs,ce)).map(a=>({a,flags:rotFlags(a,cs,ce)}))
     .sort((x,y)=>str(x.a.staff).localeCompare(str(y.a.staff)));
-  const filled=r2(list.reduce((t,x)=>t+num(x.a.fte),0)), funded=r2(num(role.fte));
+  const filled=rotRoleLoad(role.id,cs,ce), funded=r2(num(role.fte));
   const short=r2(Math.max(0,funded-filled)), over=r2(Math.max(0,filled-funded));
   let sev='good';
   if(list.some(x=>x.flags.some(f=>f.k==='warn'))||over>0.001) sev='warn';
@@ -1990,6 +2021,112 @@ function renderRotations(){
   ppl.innerHTML=rows.length?tableHTML(['Staff member','Register FTE','Assigned FTE','Difference',''],rows.map(x=>[
     esc(x.n),x.reg,x.load,signed(-x.d),
     x.d>0?`<span class="pill warn">${x.d} FTE unallocated</span>`:`<span class="pill danger">${r2(-x.d)} FTE over-allocated</span>`]),''):'<div class="empty">Everyone on the register is fully allocated in this cycle.</div>';
+}
+
+/* ---- Roll forward: copy the current block of assignments into a new date range ---- */
+let rollRows=[], rollSrc=null;
+function openRoll(){
+  const {csMs,ceMs,index}=cycleFromSelect('rotCycle');
+  const teamId=(document.getElementById('rotTeam')||{}).value||'all';
+  const live=new Set(rotLiveRoles().filter(x=>teamId==='all'||x.team.id===teamId).map(x=>x.role.id));
+  const src=state.rotations.filter(a=>live.has(str(a.roleId))&&rotInRange(a,csMs,ceMs));
+  if(!src.length){ alert('Nothing to roll forward. There are no assignments in the selected pay cycle'+(teamId==='all'?'':' for this team')+'.\n\nPick a pay cycle and team that have assignments, then try again.'); return; }
+  const {cycles,len}=buildCycles();
+  const next=cycles[Math.min(index+1,cycles.length-1)];
+  rollSrc={csMs,ceMs,teamId};
+  const t=teams().find(x=>x.id===teamId);
+  document.getElementById('rollSource').textContent='Copying '+src.length+' assignment(s) active in the pay cycle '+fmtDate(new Date(csMs).toISOString().slice(0,10))+' – '+fmtDate(new Date(ceMs).toISOString().slice(0,10))+' · '+(t?t.name:'all teams');
+  document.getElementById('roll_start').value=new Date(next).toISOString().slice(0,10);
+  document.getElementById('roll_end').value='';
+  document.getElementById('roll_close').checked=true;
+  rollRows=src.map(a=>({src:a,roleId:str(a.roleId),staff:str(a.staff),fte:num(a.fte),include:true,touched:false}));
+  renderRollPreview(true);
+  document.getElementById('rollModal').classList.add('open');
+}
+function rollNames(cur){
+  const names=distinctStaffNames();
+  return '<option value="">— Vacant (skip) —</option>'+names.map(n=>`<option value="${esc(n)}"${n===cur?' selected':''}>${esc(n)}</option>`).join('')
+    +((cur&&!names.includes(cur))?`<option value="${esc(cur)}" selected>${esc(cur)} (not on register)</option>`:'');
+}
+function rollSet(i,k,v){
+  const r=rollRows[i]; if(!r) return;
+  if(k==='fte') r.fte=Number(v)||0; else if(k==='include') r.include=!!v; else r[k]=v;
+  r.touched=true; renderRollPreview();
+}
+function renderRollPreview(reset){
+  const el=document.getElementById('rollPreview'); if(!el) return;
+  const ns=parseDate(document.getElementById('roll_start').value);
+  let h='<div class="tbl-wrap"><table><thead><tr><th></th><th>Team / role</th><th>Staff member</th><th class="num">FTE</th><th>Current assignment</th></tr></thead><tbody>';
+  rollRows.forEach((r,i)=>{
+    const f=findRole(r.roleId);
+    const a=r.src, en=parseDate(a.end);
+    const ended=ns!==null&&en!==null&&en<ns;
+    if(!r.touched) r.include=!ended;
+    h+=`<tr class="${r.include?'':'archived'}"><td><input type="checkbox" ${r.include?'checked':''} onchange="rollSet(${i},'include',this.checked)"></td>
+      <td>${f?'<b>'+esc(f.team.name)+'</b> · '+esc(f.role.name)+' <span class="hint">'+esc(f.role.cls||'')+'</span>':'<span class="hint">Unknown role</span>'}</td>
+      <td><select onchange="rollSet(${i},'staff',this.value)">${rollNames(r.staff)}</select></td>
+      <td class="num"><input type="number" step="0.01" min="0" value="${r2(r.fte)}" style="width:80px;text-align:right" onchange="rollSet(${i},'fte',this.value)"></td>
+      <td><span class="hint">${esc(str(a.staff))} · ${esc(fmtDate(a.start))} → ${a.end?esc(fmtDate(a.end)):'ongoing'}</span>${ended?' <span class="pill neutral">ended before new block</span>':''}</td></tr>`;
+  });
+  el.innerHTML=h+'</tbody></table></div>';
+  renderValidationPanel('rollValidation',rollValidate());
+}
+function rollBuild(){
+  const ns=document.getElementById('roll_start').value, ne=document.getElementById('roll_end').value;
+  const adds=rollRows.filter(r=>r.include&&r.staff&&r.fte>0).map(r=>({id:newId('ROT'),roleId:r.roleId,staff:r.staff,fte:r2(r.fte),start:ns,end:ne,notes:str(r.src.notes)}));
+  const closeTo=(document.getElementById('roll_close').checked&&parseDate(ns)!==null)?new Date(parseDate(ns)-MS_DAY).toISOString().slice(0,10):'';
+  const closes=[];
+  if(closeTo) rollRows.forEach(r=>{
+    const a=r.src, st=parseDate(a.start), en=parseDate(a.end), n=parseDate(ns);
+    if(st!==null&&st<n&&(en===null||en>=n)&&!closes.includes(a)) closes.push(a);
+  });
+  return {adds,closes,closeTo};
+}
+// Simulate the roll against a temporary copy of the plan and report what would go wrong.
+function rollValidate(){
+  const errors=[],warnings=[];
+  const ns=parseDate(document.getElementById('roll_start').value), ne=parseDate(document.getElementById('roll_end').value);
+  if(ns===null) errors.push('New block start date is required.');
+  if(ns!==null&&ne!==null&&ne<ns) errors.push('End date is before start date.');
+  if(errors.length) return {errors,warnings};
+  const {adds,closes,closeTo}=rollBuild();
+  if(!adds.length){ errors.push('No rows selected. Tick at least one row with a person and FTE above 0.'); return {errors,warnings}; }
+  const real=state.rotations;
+  const sim=deepCopy(real);
+  closes.forEach(a=>{ const c=sim.find(x=>x.id===a.id); if(c) c.end=closeTo; });
+  state.rotations=sim.concat(adds);
+  try{
+    const span=rotSpan(ns,ne), fmt=cs=>fmtDate(new Date(cs).toISOString().slice(0,10));
+    const people=[...new Set(adds.map(x=>x.staff))], roles=[...new Set(adds.map(x=>x.roleId))];
+    const some=a=>a.length>3?a.slice(0,3).join(', ')+' and '+(a.length-3)+' more':a.join(', ');
+    people.forEach(n=>{
+      const reg=rotRegisterFTE(n), over=[], abs=[];
+      span.forEach(({cs,ce})=>{ if(reg>0&&rotPersonLoad(n,cs,ce)>reg+0.001) over.push(fmt(cs)); if(rotAbsences(n,cs,ce).length) abs.push(fmt(cs)); });
+      if(!state.staff.some(s=>str(s.name)===n)) warnings.push(n+' is not on the Staff Register.');
+      if(over.length) warnings.push(n+' would be assigned more FTE than they hold ('+reg+') in '+over.length+' pay cycle(s), from '+some(over)+'.');
+      if(abs.length) warnings.push(n+' has leave or secondment out in Movements during '+abs.length+' pay cycle(s), from '+some(abs)+'.');
+    });
+    roles.forEach(id=>{
+      const f=findRole(id); if(!f) return;
+      const over=[]; span.forEach(({cs,ce})=>{ if(num(f.role.fte)>0&&rotRoleLoad(id,cs,ce)>num(f.role.fte)+0.001) over.push(fmt(cs)); });
+      if(over.length) warnings.push(f.team.name+' / '+f.role.name+' would exceed its '+r2(num(f.role.fte))+' FTE funding in '+over.length+' pay cycle(s), from '+some(over)+'.');
+    });
+    const skipped=rollRows.filter(r=>r.include&&!r.staff).length;
+    if(skipped) warnings.push(skipped+' ticked row(s) have no person selected and will be left vacant.');
+  } finally { state.rotations=real; }
+  return {errors,warnings};
+}
+function applyRoll(){
+  const result=rollValidate();
+  renderValidationPanel('rollValidation',result);
+  if(!confirmWarnings(result)) return;
+  const {adds,closes,closeTo}=rollBuild();
+  closes.forEach(a=>{ const before=deepCopy(a); a.end=closeTo; auditLog('Update','Rotation',str(a.staff),'Ended assignment for '+str(a.staff)+' on '+fmtDate(closeTo)+' (roll forward)',before,a); });
+  adds.forEach(a=>{ state.rotations.push(a); const f=findRole(a.roleId); auditLog('Create','Rotation',a.staff+' → '+(f?f.team.name+' / '+f.role.name:a.roleId),'Added assignment via roll forward · '+r2(a.fte)+' FTE from '+fmtDate(a.start),null,a,fieldChanges(null,a)); });
+  closeModal('rollModal'); persist();
+  const {cycles}=buildCycles(); const sel=document.getElementById('rotCycle');
+  const st=parseDate(adds[0].start); let idx=0; cycles.forEach((c,k)=>{ if(c<=st) idx=k; });
+  rebuildAll(); if(sel){ sel.value=idx; renderRotations(); }
 }
 function rotRoleOptions(selId){
   let h='<option value="">— Choose a role —</option>';
