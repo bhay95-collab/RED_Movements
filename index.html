@@ -128,6 +128,11 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .modal-foot .spacer{flex:1}
 @media(max-width:760px){.topbar{position:sticky;top:0;width:calc(100% - 20px);min-height:auto;margin:10px auto 0;padding:14px;flex-direction:column;align-items:flex-start}.top-actions{margin-left:0;width:100%;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}.top-actions::-webkit-scrollbar{display:none}.app{grid-template-columns:1fr;margin:16px auto 22px;padding:0 16px}.rail{position:static;flex-direction:row;flex-wrap:wrap;top:auto;max-height:none;overflow:visible}.grid2{grid-template-columns:1fr}}
 .hint{font-size:11.5px;color:var(--muted);font-weight:600}
+.team-block{border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow-sm);padding:14px 16px;margin-bottom:14px}
+.team-block.is-archived{opacity:.65;background:var(--bg-2)}
+.team-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.team-head input[type=text]{font-size:15px;font-weight:800;min-width:220px;flex:1 1 220px}
+.team-tot{font-size:11.5px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}
 .sectionnote{background:var(--accent-soft);border:1px solid rgba(26,90,153,0.14);border-radius:12px;padding:11px 14px;font-size:12px;color:var(--accent-dark);font-weight:600;margin-bottom:14px}
 
 /* Planner */
@@ -413,7 +418,7 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
 
     <!-- SETTINGS -->
     <section class="view" id="view-settings">
-      <div class="viewhead"><div><h2>Settings</h2><div class="vsub">Service identity, classification budget, and pay-cycle calendar.</div></div></div>
+      <div class="viewhead"><div><h2>Settings</h2><div class="vsub">Service identity, teams &amp; roles, classification budget, and pay-cycle calendar.</div></div></div>
       <div class="card">
         <div class="card-head" onclick="toggleCard(this)"><div><h3>Service identity</h3><div class="card-sub">Drives the banner, the browser tab and the backup file name.</div></div><span class="chev">▾</span></div>
         <div class="card-body">
@@ -424,9 +429,19 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
         </div>
       </div>
       <div class="card">
+        <div class="card-head" onclick="toggleCard(this)"><div><h3>Teams &amp; roles</h3><div class="card-sub">Build your own service structure: teams, and the roles inside each team.</div></div><span class="chev">▾</span></div>
+        <div class="card-body">
+          <div class="sectionnote">A <b>team</b> is any grouping you use (a ward, service line, rotation area). A <b>role</b> is a funded position inside a team. Each role has a classification (pay grade) and funded FTE. Funded FTE on roles adds up to the baseline for each classification, so the budget stays in step. Staff lines are then assigned to a team and role in the Staff Register.</div>
+          <div id="settingsTeams"></div>
+          <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px">
+            <button class="btn primary" onclick="addTeam()">+ Add team</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
         <div class="card-head" onclick="toggleCard(this)"><div><h3>Classification budget</h3><div class="card-sub">Add, rename or remove classifications and set the funded FTE for this service.</div></div><span class="chev">▾</span></div>
         <div class="card-body">
-          <div class="sectionnote">Baseline FTE = your funded establishment for that classification. Ceiling = the most you are permitted to run. Additional approved = extra FTE signed off outside the baseline (e.g. new grant funding) — it is added to the ceiling, not the baseline.</div>
+          <div class="sectionnote">Baseline FTE = your funded establishment for that classification. Where roles use a classification, its baseline is added up from those roles automatically; otherwise you can type it here. Ceiling = the most you are permitted to run. Additional approved = extra FTE signed off outside the baseline (e.g. new grant funding) — it is added to the ceiling, not the baseline.</div>
           <div id="settingsClasses"></div>
           <div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px">
             <button class="btn primary" onclick="addClassification()">+ Add classification</button>
@@ -503,6 +518,8 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
     <div class="msub">One substantive line per row. A permanent split (0.4 HP5 + 0.6 HP4) is two rows, same name.</div>
     <div class="grid2">
       <div class="field full"><label>Staff member</label><input type="text" id="s_name"></div>
+      <div class="field"><label>Team</label><select id="s_team" onchange="staffTeamChanged()"></select></div>
+      <div class="field"><label>Role</label><select id="s_role" onchange="staffRoleChanged()"></select></div>
       <div class="field"><label>Substantive classification</label><select id="s_subClass"></select></div>
       <div class="field"><label>Substantive FTE</label><input type="number" step="0.01" id="s_subFTE"></div>
       <div class="field"><label>Position ID</label><input type="text" id="s_posId"></div>
@@ -529,12 +546,12 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
 /* ============================ SEED DATA ============================ */
 const SEED = {
  "staff": [
-  { "name":"Demo Lead (HP5)", "subClass":"HP5", "posId":30000001, "posTitle":"Physio Advanced TL", "subFTE":1, "empType":"Permanent", "contractStart":"", "contractEnd":"", "team":"", "active":"Yes", "notes":"Example data — replace with your own or import a backup." },
-  { "name":"Demo Senior (HP4)", "subClass":"HP4", "posId":30000002, "posTitle":"Physiotherapist Senior", "subFTE":1, "empType":"Permanent", "contractStart":"", "contractEnd":"", "team":"", "active":"Yes", "notes":"" },
-  { "name":"Demo Clinician (HP3)", "subClass":"HP3", "posId":30000003, "posTitle":"Physiotherapist", "subFTE":1, "empType":"Permanent", "contractStart":"", "contractEnd":"", "team":"", "active":"Yes", "notes":"" },
-  { "name":"Demo Temp Soon (HP3)", "subClass":"HP3", "posId":30000003, "posTitle":"Physiotherapist", "subFTE":0.5, "empType":"Temporary", "contractStart":"2026-01-01", "contractEnd":"2026-08-15", "team":"", "active":"Yes", "notes":"Temp contract — appears in Contract horizon." },
-  { "name":"Demo Temp Expired (HP3)", "subClass":"HP3", "posId":30000003, "posTitle":"Physiotherapist", "subFTE":0.6, "empType":"Temporary", "contractStart":"2025-06-01", "contractEnd":"2026-05-31", "team":"", "active":"Yes", "notes":"Contract end has passed — shows the expired flag." },
-  { "name":"Demo Assistant (CA3)", "subClass":"CA3", "posId":30000004, "posTitle":"Physiotherapist Assistant", "subFTE":1, "empType":"Permanent", "contractStart":"", "contractEnd":"", "team":"", "active":"Yes", "notes":"" }
+  { "name":"Demo Lead (HP5)", "subClass":"HP5", "posId":30000001, "posTitle":"Physio Advanced TL", "subFTE":1, "empType":"Permanent", "contractStart":"", "contractEnd":"", "team":"", "roleId":"R-DEMO1", "active":"Yes", "notes":"Example data — replace with your own or import a backup." },
+  { "name":"Demo Senior (HP4)", "subClass":"HP4", "posId":30000002, "posTitle":"Physiotherapist Senior", "subFTE":1, "empType":"Permanent", "contractStart":"", "contractEnd":"", "team":"", "roleId":"R-DEMO2", "active":"Yes", "notes":"" },
+  { "name":"Demo Clinician (HP3)", "subClass":"HP3", "posId":30000003, "posTitle":"Physiotherapist", "subFTE":1, "empType":"Permanent", "contractStart":"", "contractEnd":"", "team":"", "roleId":"R-DEMO3", "active":"Yes", "notes":"" },
+  { "name":"Demo Temp Soon (HP3)", "subClass":"HP3", "posId":30000003, "posTitle":"Physiotherapist", "subFTE":0.5, "empType":"Temporary", "contractStart":"2026-01-01", "contractEnd":"2026-08-15", "team":"", "roleId":"R-DEMO3", "active":"Yes", "notes":"Temp contract — appears in Contract horizon." },
+  { "name":"Demo Temp Expired (HP3)", "subClass":"HP3", "posId":30000003, "posTitle":"Physiotherapist", "subFTE":0.6, "empType":"Temporary", "contractStart":"2025-06-01", "contractEnd":"2026-05-31", "team":"", "roleId":"R-DEMO4", "active":"Yes", "notes":"Contract end has passed — shows the expired flag." },
+  { "name":"Demo Assistant (CA3)", "subClass":"CA3", "posId":30000004, "posTitle":"Physiotherapist Assistant", "subFTE":1, "empType":"Permanent", "contractStart":"", "contractEnd":"", "team":"", "roleId":"R-DEMO5", "active":"Yes", "notes":"" }
  ],
  "movements": [
   { "id":"MV-0001", "owner":"", "staff":"Demo Clinician (HP3)", "subClass":"HP3", "subFTE":1, "empArr":"Permanent", "workPosId":"", "workPosTitle":"", "workClass":"HP3", "type":"Leave", "fteMoved":1, "start":"2026-06-15", "end":"2026-09-15", "vmcNum":"", "vmcUrl":"", "procNum":"", "adminStatus":"Confirmed", "absenceType":"LSL", "archived":"No", "notes":"Example long service leave." },
@@ -543,6 +560,15 @@ const SEED = {
  ],
  "settings": {
   "serviceName": "Redcliffe Physiotherapy",
+  "teams": [
+   { "id":"T-DEMO1", "name":"Example Team A", "active":true, "roles":[
+     { "id":"R-DEMO1", "name":"Team Lead", "cls":"HP5", "fte":1, "active":true },
+     { "id":"R-DEMO2", "name":"Senior Clinician", "cls":"HP4", "fte":1, "active":true },
+     { "id":"R-DEMO3", "name":"Clinician", "cls":"HP3", "fte":1.5, "active":true } ] },
+   { "id":"T-DEMO2", "name":"Example Team B", "active":true, "roles":[
+     { "id":"R-DEMO4", "name":"Clinician", "cls":"HP3", "fte":0.6, "active":true },
+     { "id":"R-DEMO5", "name":"Assistant", "cls":"CA3", "fte":1, "active":true } ] }
+  ],
   "orgName": "Metro North Health",
   "classes": ["HP5","HP4","HP3","CA3"],
   "baselines": { "HP5":0, "HP4":0, "HP3":0, "CA3":0 },
@@ -658,7 +684,11 @@ function effFTE(cls,csMs,ceMs,mode){
   }
   return base-out-outL+inM+inE;
 }
-function baselineOf(cls){ const b=state.settings.baselines||{}; return num(b[cls]); }
+// Baseline = sum of active role FTE in that classification once any role uses it; otherwise the manual figure.
+function activeRoles(){ const out=[]; (state.settings.teams||[]).forEach(t=>{ if(t.active===false) return; (t.roles||[]).forEach(r=>{ if(r.active!==false) out.push(r); }); }); return out; }
+function classHasRoles(cls){ return activeRoles().some(r=>str(r.cls)===cls); }
+function roleFundedByClass(cls){ return r2(activeRoles().filter(r=>str(r.cls)===cls).reduce((a,r)=>a+num(r.fte),0)); }
+function baselineOf(cls){ if(classHasRoles(cls)) return roleFundedByClass(cls); const b=state.settings.baselines||{}; return num(b[cls]); }
 function ceilingOf(cls){ const c=(state.settings.ceilings||{})[cls]||{}; return num(c.ceiling)+num(c.additional); }
 const r2=x=>Math.round(x*100)/100;
 
@@ -702,7 +732,7 @@ function readMovementForm(){
 }
 function readStaffForm(){
   const g=id=>document.getElementById(id).value;
-  return { name:g('s_name'), subClass:g('s_subClass'), subFTE:g('s_subFTE')===''?'':Number(g('s_subFTE')), posId:g('s_posId'), posTitle:g('s_posTitle'), empType:g('s_empType'), active:g('s_active'), contractStart:g('s_contractStart'), contractEnd:g('s_contractEnd'), team:'', notes:g('s_notes') };
+  return { name:g('s_name'), subClass:g('s_subClass'), subFTE:g('s_subFTE')===''?'':Number(g('s_subFTE')), posId:g('s_posId'), posTitle:g('s_posTitle'), empType:g('s_empType'), active:g('s_active'), contractStart:g('s_contractStart'), contractEnd:g('s_contractEnd'), team:'', roleId:g('s_role'), notes:g('s_notes') };
 }
 function validateMovementObject(obj,existingId){
   const errors=[],warnings=[];
@@ -766,6 +796,14 @@ function validateStaffObject(obj,idx){
   if(str(obj.empType)==='Temporary'&&str(obj.active)==='Yes'&&!str(obj.contractEnd)) warnings.push('Active temporary staff line has no contract end date. It will not appear in the contract horizon.');
   if(str(obj.empType)==='Temporary'&&str(obj.active)==='Yes'&&ce!==null&&ce<today) warnings.push('Temporary contract end date has passed while the line remains active.');
   if(str(obj.empType)!=='Temporary'&&(str(obj.contractStart)||str(obj.contractEnd))) warnings.push('Contract dates are usually only used for temporary lines.');
+  const fr=findRole(str(obj.roleId));
+  if(fr){
+    if(str(fr.role.cls)&&str(fr.role.cls)!==str(obj.subClass)) warnings.push('This role ('+fr.role.name+') is funded as '+fr.role.cls+' but the line is '+str(obj.subClass)+'. Fine if intended; otherwise the role or classification may be wrong.');
+    if(fr.role.active===false||fr.team.active===false) warnings.push('This role or its team is archived, so its funded FTE is not counted.');
+    const others=state.staff.filter((s,i)=>i!==idx&&str(s.roleId)===fr.role.id&&str(s.active)==='Yes').reduce((a,s)=>a+num(s.subFTE),0);
+    const total=r2(others+(str(obj.active)==='Yes'?f:0));
+    if(num(fr.role.fte)>0&&total>num(fr.role.fte)+0.001) warnings.push(fr.team.name+' / '+fr.role.name+' would hold '+total+' FTE against '+r2(num(fr.role.fte))+' FTE funded.');
+  }
   const dup=state.staff.some((s,i)=>i!==idx&&str(s.name)===name&&str(s.subClass)===str(obj.subClass)&&str(s.posId)===str(obj.posId));
   if(dup) warnings.push('A similar staff line already exists for this name, classification and position ID.');
   return {errors,warnings};
@@ -783,7 +821,7 @@ function updateMovementValidation(){ renderValidationPanel('movValidation',valid
 function updateStaffValidation(){ renderValidationPanel('staffValidation',validateStaffObject(readStaffForm(),editingStaffIdx)); }
 function wireValidation(){
   ['m_staff','m_subClass','m_subFTE','m_type','m_fteMoved','m_workClass','m_empArr','m_owner','m_start','m_end','m_absenceType','m_adminStatus','m_vmcNum','m_vmcUrl','m_archived'].forEach(id=>{ const el=document.getElementById(id); if(el&&!el.dataset.vwired){ el.addEventListener('input',updateMovementValidation); el.addEventListener('change',updateMovementValidation); el.dataset.vwired='1'; }});
-  ['s_name','s_subClass','s_subFTE','s_posId','s_posTitle','s_empType','s_active','s_contractStart','s_contractEnd'].forEach(id=>{ const el=document.getElementById(id); if(el&&!el.dataset.vwired){ el.addEventListener('input',updateStaffValidation); el.addEventListener('change',updateStaffValidation); el.dataset.vwired='1'; }});
+  ['s_name','s_team','s_role','s_subClass','s_subFTE','s_posId','s_posTitle','s_empType','s_active','s_contractStart','s_contractEnd'].forEach(id=>{ const el=document.getElementById(id); if(el&&!el.dataset.vwired){ el.addEventListener('input',updateStaffValidation); el.addEventListener('change',updateStaffValidation); el.dataset.vwired='1'; }});
 }
 function confirmWarnings(result){
   if(result.errors.length){ alert('Please fix before saving:\n\n- '+result.errors.join('\n- ')); return false; }
@@ -831,6 +869,14 @@ function ensureShape(){
     state.settings.classes = found.length? DEFAULT_CLASSES.filter(c=>found.includes(c)).concat(found.filter(c=>!DEFAULT_CLASSES.includes(c))) : DEFAULT_CLASSES.slice();
   }
   state.settings.classes=state.settings.classes.map(c=>String(c).trim()).filter(Boolean);
+  // Teams > Roles: manager-built structure. Normalise, and make sure every role's classification exists.
+  if(!Array.isArray(state.settings.teams)) state.settings.teams=[];
+  state.settings.teams.forEach(t=>{
+    if(!t.id) t.id=newId('T'); t.name=str(t.name)||'Unnamed team'; if(t.active===undefined) t.active=true;
+    if(!Array.isArray(t.roles)) t.roles=[];
+    t.roles.forEach(r=>{ if(!r.id) r.id=newId('R'); r.name=str(r.name)||'Unnamed role'; r.cls=str(r.cls); r.fte=num(r.fte); if(r.active===undefined) r.active=true;
+      if(r.cls&&!state.settings.classes.includes(r.cls)) state.settings.classes.push(r.cls); });
+  });
   // Repair: a build shipped 25 Aug 2026 saved the "none" option's label as the value.
   // Also trim stray whitespace so names match between the register and movements.
   const NO_CLASS_BAD=/^\s*[\u2014-]\s*none\b/i;
@@ -850,7 +896,7 @@ function ensureShape(){
   state.settings.cycleLenDays=state.settings.cycleLenDays||14;
   // one-time data migration: correct legacy misspelled movement type
   state.movements.forEach(m=>{ if(str(m.type)==='Parental Retun to Work') m.type='Parental Return to Work'; });
-  state.staff.forEach(s=>{ if(s.active===undefined||s.active==='') s.active='Yes'; if(s.team===undefined) s.team=''; });
+  state.staff.forEach(s=>{ if(s.active===undefined||s.active==='') s.active='Yes'; if(s.team===undefined) s.team=''; if(s.roleId===undefined) s.roleId=''; });
   state.movements.forEach(m=>{ if(m.archived===undefined||m.archived==='') m.archived='No'; });
 }
 
@@ -1353,6 +1399,8 @@ function renderStaff(){
   const isExpired=s=>str(s.empType)==='Temporary'&&str(s.active)==='Yes'&&parseDate(s.contractEnd)!==null&&parseDate(s.contractEnd)<today;
   const cols=[
     {key:'name',label:'Name',val:s=>str(s.name).toLowerCase(),get:s=>esc(str(s.name))},
+    {key:'team',label:'Team',group:true,val:s=>{ const l=roleLabel(s); return l?l.team.toLowerCase():''; },get:s=>{ const l=roleLabel(s); return l?esc(l.team):'<span class="hint">Unassigned</span>'; }},
+    {key:'role',label:'Role',val:s=>{ const l=roleLabel(s); return l?l.role.toLowerCase():''; },get:s=>{ const l=roleLabel(s); return l?esc(l.role):''; }},
     {key:'subClass',label:'Class',group:true,val:s=>CLASSES.indexOf(str(s.subClass)),get:s=>esc(str(s.subClass))},
     {key:'subFTE',label:'FTE',num:true,val:s=>num(s.subFTE),get:s=>r2(num(s.subFTE))},
     {key:'posTitle',label:'Position',val:s=>str(s.posTitle).toLowerCase(),get:s=>esc(str(s.posTitle))},
@@ -1380,23 +1428,183 @@ function deactivateStaff(i){
   const before=deepCopy(s); s.active='No'; auditLog('Archive','Staff',str(s.name),`Set ${str(s.name)} inactive`,before,s); persist(); rebuildAll();
 }
 
+/* ============================ TEAMS > ROLES ============================ */
+let _idSeq=0;
+function newId(prefix){ return prefix+'-'+Date.now().toString(36).toUpperCase()+(++_idSeq).toString(36).toUpperCase()+Math.floor(Math.random()*1296).toString(36).toUpperCase(); }
+function teams(){ return state.settings.teams||[]; }
+function findRole(roleId){
+  if(!str(roleId)) return null;
+  for(const t of teams()){ const r=(t.roles||[]).find(x=>x.id===roleId); if(r) return {team:t,role:r}; }
+  return null;
+}
+function roleStaff(roleId){ return state.staff.filter(s=>str(s.roleId)===roleId); }
+function roleFilledFTE(roleId){ return r2(roleStaff(roleId).filter(s=>str(s.active)==='Yes').reduce((a,s)=>a+num(s.subFTE),0)); }
+function teamOfStaff(s){ const f=findRole(str(s.roleId)); return f?f.team:null; }
+function roleLabel(s){ const f=findRole(str(s.roleId)); return f?{team:f.team.name,role:f.role.name}:null; }
+function addTeam(){
+  const raw=prompt('Team name (e.g. Internal Medicine, Rehab, Outpatients):','');
+  if(raw===null) return;
+  const v=str(raw); if(!v){ alert('Team name cannot be blank.'); return; }
+  if(teams().some(t=>t.name.toLowerCase()===v.toLowerCase())){ alert('A team called '+v+' already exists.'); return; }
+  state.settings.teams.push({id:newId('T'),name:v,active:true,roles:[]});
+  auditLog('Create','Settings','Team '+v,'Team '+v+' added',null,null,['Added team '+v]);
+  persist(); rebuildAll();
+}
+function addRole(teamId){
+  const t=teams().find(x=>x.id===teamId); if(!t) return;
+  const raw=prompt('New role in '+t.name+' (e.g. Senior Physio, Rotation 1, Assistant):','');
+  if(raw===null) return;
+  const v=str(raw); if(!v){ alert('Role name cannot be blank.'); return; }
+  if(t.roles.some(r=>r.name.toLowerCase()===v.toLowerCase())&&!confirm('A role called '+v+' already exists in '+t.name+'. Add another with the same name?')) return;
+  t.roles.push({id:newId('R'),name:v,cls:defaultClass(),fte:0,active:true});
+  auditLog('Create','Settings','Role '+t.name+' / '+v,'Role '+v+' added to '+t.name,null,null,['Added role '+v+' to '+t.name]);
+  persist(); rebuildAll();
+}
+function renameTeam(teamId,raw){
+  const t=teams().find(x=>x.id===teamId); if(!t) return;
+  const v=str(raw), old=t.name;
+  if(v===old) return;
+  if(!v){ alert('Team name cannot be blank.'); renderSettings(); return; }
+  if(teams().some(x=>x!==t&&x.name.toLowerCase()===v.toLowerCase())){ alert('A team called '+v+' already exists.'); renderSettings(); return; }
+  t.name=v; auditLog('Update','Settings','Team '+v,'Team '+old+' renamed to '+v,null,null,[old+' → '+v]);
+  persist(); rebuildAll();
+}
+function renameRole(teamId,roleId,raw){
+  const t=teams().find(x=>x.id===teamId); const r=t&&t.roles.find(x=>x.id===roleId); if(!r) return;
+  const v=str(raw), old=r.name;
+  if(v===old) return;
+  if(!v){ alert('Role name cannot be blank.'); renderSettings(); return; }
+  r.name=v; auditLog('Update','Settings','Role '+t.name+' / '+v,'Role '+old+' renamed to '+v+' in '+t.name,null,null,[old+' → '+v]);
+  persist(); rebuildAll();
+}
+function setRoleField(teamId,roleId,k,v){
+  const t=teams().find(x=>x.id===teamId); const r=t&&t.roles.find(x=>x.id===roleId); if(!r) return;
+  const before=r[k];
+  r[k]= k==='fte' ? Math.max(0,Number(v)||0) : v;
+  if(before===r[k]) return;
+  auditLog('Update','Settings','Role '+t.name+' / '+r.name,(k==='fte'?'Funded FTE':k==='cls'?'Classification':k)+' updated for '+r.name+' in '+t.name,{value:before},{value:r[k]});
+  persist(); rebuildAll();
+}
+function toggleTeamActive(teamId){
+  const t=teams().find(x=>x.id===teamId); if(!t) return;
+  t.active=(t.active===false); auditLog('Update','Settings','Team '+t.name,'Team '+t.name+(t.active?' reactivated':' archived'),null,null,[t.active?'Reactivated':'Archived — its role FTE no longer counts towards baselines']);
+  persist(); rebuildAll();
+}
+function toggleRoleActive(teamId,roleId){
+  const t=teams().find(x=>x.id===teamId); const r=t&&t.roles.find(x=>x.id===roleId); if(!r) return;
+  r.active=(r.active===false); auditLog('Update','Settings','Role '+t.name+' / '+r.name,'Role '+r.name+' in '+t.name+(r.active?' reactivated':' archived'),null,null,[r.active?'Reactivated':'Archived — its FTE no longer counts towards baselines']);
+  persist(); rebuildAll();
+}
+function moveTeam(teamId,dir){
+  const a=state.settings.teams, i=a.findIndex(x=>x.id===teamId), j=i+dir; if(i<0||j<0||j>=a.length) return;
+  const t=a[i]; a[i]=a[j]; a[j]=t; persist(); rebuildAll();
+}
+function moveRole(teamId,roleId,dir){
+  const t=teams().find(x=>x.id===teamId); if(!t) return;
+  const a=t.roles, i=a.findIndex(x=>x.id===roleId), j=i+dir; if(i<0||j<0||j>=a.length) return;
+  const r=a[i]; a[i]=a[j]; a[j]=r; persist(); rebuildAll();
+}
+function moveRoleToTeam(teamId,roleId,newTeamId){
+  const from=teams().find(x=>x.id===teamId), to=teams().find(x=>x.id===newTeamId); if(!from||!to||from===to) return;
+  const i=from.roles.findIndex(x=>x.id===roleId); if(i<0) return;
+  const r=from.roles.splice(i,1)[0]; to.roles.push(r);
+  const n=roleStaff(roleId).length;
+  auditLog('Update','Settings','Role '+r.name,'Role '+r.name+' moved from '+from.name+' to '+to.name,null,null,[from.name+' → '+to.name+(n?' ('+n+' staff line(s) move with it)':'')]);
+  persist(); rebuildAll();
+}
+function removeTeam(teamId){
+  const t=teams().find(x=>x.id===teamId); if(!t) return;
+  const used=t.roles.reduce((a,r)=>a+roleStaff(r.id).length,0);
+  if(used){ alert('Cannot delete '+t.name+'.\n\n'+used+' staff line(s) are assigned to roles in this team. Reassign them in the Staff Register first, or archive the team instead.'); return; }
+  if(!confirm('Delete team '+t.name+(t.roles.length?' and its '+t.roles.length+' role(s)':'')+'?\n\nNo staff are assigned to it. Archive instead if you may want it back.')) return;
+  state.settings.teams=teams().filter(x=>x!==t);
+  auditLog('Delete','Settings','Team '+t.name,'Team '+t.name+' deleted',deepCopy(t),null,['Deleted team '+t.name+' with '+t.roles.length+' role(s)']);
+  persist(); rebuildAll();
+}
+function removeRole(teamId,roleId){
+  const t=teams().find(x=>x.id===teamId); const r=t&&t.roles.find(x=>x.id===roleId); if(!r) return;
+  const n=roleStaff(roleId).length;
+  if(n){ alert('Cannot delete '+r.name+'.\n\n'+n+' staff line(s) are assigned to it. Reassign them in the Staff Register first, or archive the role instead.'); return; }
+  if(!confirm('Delete role '+r.name+' from '+t.name+'?')) return;
+  t.roles=t.roles.filter(x=>x!==r);
+  auditLog('Delete','Settings','Role '+t.name+' / '+r.name,'Role '+r.name+' deleted from '+t.name,deepCopy(r),null,['Deleted role '+r.name]);
+  persist(); rebuildAll();
+}
+function renderTeams(){
+  const el=document.getElementById('settingsTeams'); if(!el) return;
+  const ts=teams();
+  if(!ts.length){
+    el.innerHTML='<div class="empty">No teams yet. Add your first team, then add the roles that sit inside it.</div>';
+    return;
+  }
+  const unassigned=state.staff.filter(s=>str(s.active)==='Yes'&&!findRole(str(s.roleId)));
+  let h='';
+  if(unassigned.length) h+=`<div class="sectionnote" style="background:var(--warn-bg);border-color:rgba(122,88,0,.2);color:var(--warn)"><b>${unassigned.length}</b> active staff line(s) (${r2(unassigned.reduce((a,s)=>a+num(s.subFTE),0))} FTE) are not assigned to a role yet. Assign them in the Staff Register.</div>`;
+  ts.forEach((t,ti)=>{
+    const live=t.active!==false;
+    const roles=t.roles||[];
+    const funded=r2(roles.filter(r=>r.active!==false).reduce((a,r)=>a+num(r.fte),0));
+    const filled=r2(roles.filter(r=>r.active!==false).reduce((a,r)=>a+roleFilledFTE(r.id),0));
+    const otherTeams=ts.filter(x=>x!==t);
+    h+=`<div class="team-block${live?'':' is-archived'}">
+      <div class="team-head">
+        <input type="text" value="${esc(t.name)}" onchange="renameTeam(${esc(jsq(t.id))},this.value)" aria-label="Team name">
+        ${live?'':'<span class="pill neutral">Archived</span>'}
+        <span class="team-tot">${funded} FTE funded · ${filled} FTE filled · ${roles.length} role${roles.length===1?'':'s'}</span>
+        <div class="rowact" style="margin-left:auto">
+          <button class="iconbtn" onclick="moveTeam(${esc(jsq(t.id))},-1)" title="Move up"${ti===0?' disabled':''}>↑</button>
+          <button class="iconbtn" onclick="moveTeam(${esc(jsq(t.id))},1)" title="Move down"${ti===ts.length-1?' disabled':''}>↓</button>
+          <button class="iconbtn" onclick="toggleTeamActive(${esc(jsq(t.id))})">${live?'Archive':'Reactivate'}</button>
+          <button class="iconbtn del" onclick="removeTeam(${esc(jsq(t.id))})">Delete team</button>
+        </div>
+      </div>`;
+    if(roles.length){
+      h+='<div class="tbl-wrap"><table><thead><tr><th>Role</th><th>Classification</th><th class="num">Funded FTE</th><th class="num">Filled FTE</th><th>Status</th>'+(otherTeams.length?'<th>Move to team</th>':'')+'<th></th></tr></thead><tbody>';
+      roles.forEach((r,ri)=>{
+        const rl=r.active!==false, fl=roleFilledFTE(r.id), fu=num(r.fte), d=r2(fl-fu), n=roleStaff(r.id).length;
+        let st;
+        if(!rl) st='<span class="pill neutral">Archived</span>';
+        else if(fu===0&&fl===0) st='<span class="hint">no FTE set</span>';
+        else if(Math.abs(d)<0.001) st='<span class="pill good">Filled</span>';
+        else if(d<0) st=`<span class="pill warn">${signed(d)} vacant</span>`;
+        else st=`<span class="pill danger">${signed(d)} over funded</span>`;
+        const clsOpts=(CLASSES.includes(r.cls)||!r.cls?CLASSES:CLASSES.concat([r.cls])).map(c=>`<option value="${esc(c)}"${c===r.cls?' selected':''}>${esc(c)}</option>`).join('');
+        h+=`<tr class="${rl?'':'archived'}">
+          <td><input type="text" value="${esc(r.name)}" style="min-width:170px;font-weight:700" onchange="renameRole(${esc(jsq(t.id))},${esc(jsq(r.id))},this.value)" aria-label="Role name"></td>
+          <td><select onchange="setRoleField(${esc(jsq(t.id))},${esc(jsq(r.id))},'cls',this.value)">${clsOpts}</select></td>
+          <td class="num"><input type="number" step="0.01" min="0" value="${fu}" style="width:90px;text-align:right" onchange="setRoleField(${esc(jsq(t.id))},${esc(jsq(r.id))},'fte',this.value)"></td>
+          <td class="num">${fl}${n?` <span class="hint">(${n} line${n===1?'':'s'})</span>`:''}</td>
+          <td>${st}</td>
+          ${otherTeams.length?`<td><select onchange="moveRoleToTeam(${esc(jsq(t.id))},${esc(jsq(r.id))},this.value)"><option value="">${esc(t.name)}</option>${otherTeams.map(o=>`<option value="${esc(o.id)}">Move to ${esc(o.name)}</option>`).join('')}</select></td>`:''}
+          <td class="rowact"><button class="iconbtn" onclick="moveRole(${esc(jsq(t.id))},${esc(jsq(r.id))},-1)" title="Move up"${ri===0?' disabled':''}>↑</button><button class="iconbtn" onclick="moveRole(${esc(jsq(t.id))},${esc(jsq(r.id))},1)" title="Move down"${ri===roles.length-1?' disabled':''}>↓</button><button class="iconbtn" onclick="toggleRoleActive(${esc(jsq(t.id))},${esc(jsq(r.id))})">${rl?'Archive':'Reactivate'}</button><button class="iconbtn del" onclick="removeRole(${esc(jsq(t.id))},${esc(jsq(r.id))})">Delete</button></td>
+        </tr>`;
+      });
+      h+='</tbody></table></div>';
+    } else h+='<div class="hint" style="margin-bottom:8px">No roles in this team yet.</div>';
+    h+=`<div style="margin-top:10px"><button class="btn sm" onclick="addRole(${esc(jsq(t.id))})">+ Add role to ${esc(t.name)}</button></div></div>`;
+  });
+  el.innerHTML=h;
+}
+
 /* ============================ SETTINGS ============================ */
 function classUsage(cls){
   const st=state.staff.filter(s=>str(s.subClass)===cls).length;
   const mv=state.movements.filter(m=>str(m.subClass)===cls||str(m.workClass)===cls).length;
-  return {staff:st,movements:mv,total:st+mv};
+  const ro=teams().reduce((a,t)=>a+(t.roles||[]).filter(r=>str(r.cls)===cls).length,0);
+  return {staff:st,movements:mv,roles:ro,total:st+mv+ro};
 }
 function renderSettings(){
+  renderTeams();
   let h='<div class="tbl-wrap"><table><thead><tr><th>Classification</th><th class="num">Baseline FTE</th><th class="num">Ceiling FTE</th><th class="num">Additional approved</th><th class="num">Effective ceiling</th><th>In use</th><th></th></tr></thead><tbody>';
   CLASSES.forEach((cls,i)=>{
     const b=num((state.settings.baselines||{})[cls]); const c=(state.settings.ceilings||{})[cls]||{};
     const u=classUsage(cls);
     h+=`<tr><td><input type="text" value="${esc(cls)}" style="width:110px;font-weight:800" onchange="renameClassification(${i},this.value)"></td>
-      <td class="num"><input type="number" step="0.01" min="0" value="${b}" style="width:90px;text-align:right" onchange="setBaseline('${esc(cls)}',this.value)"></td>
+      <td class="num">${classHasRoles(cls)?`<b>${roleFundedByClass(cls)}</b><div class="hint">from roles</div>`:`<input type="number" step="0.01" min="0" value="${b}" style="width:90px;text-align:right" onchange="setBaseline('${esc(cls)}',this.value)">`}</td>
       <td class="num"><input type="number" step="0.01" min="0" value="${num(c.ceiling)}" style="width:90px;text-align:right" onchange="setCeiling('${esc(cls)}','ceiling',this.value)"></td>
       <td class="num"><input type="number" step="0.01" value="${num(c.additional)}" style="width:90px;text-align:right" onchange="setCeiling('${esc(cls)}','additional',this.value)"></td>
       <td class="num"><b>${r2(num(c.ceiling)+num(c.additional))}</b></td>
-      <td>${u.total? '<span class="pill neutral">'+u.staff+' staff · '+u.movements+' mvt</span>' : '<span class="hint">not used</span>'}</td>
+      <td>${u.total? '<span class="pill neutral">'+u.staff+' staff · '+u.movements+' mvt'+(u.roles?' · '+u.roles+' role'+(u.roles===1?'':'s'):'')+'</span>' : '<span class="hint">not used</span>'}</td>
       <td class="rowact"><button class="iconbtn" onclick="moveClassification(${i},-1)" title="Move up">↑</button><button class="iconbtn" onclick="moveClassification(${i},1)" title="Move down">↓</button><button class="iconbtn del" onclick="removeClassification(${i})">Remove</button></td></tr>`;
   });
   h+='</tbody></table></div>';
@@ -1432,18 +1640,19 @@ function renameClassification(i,raw){
   if(!v){ alert('Classification code cannot be blank.'); renderSettings(); return; }
   if(CLASSES.some((c,j)=>j!==i&&c.toLowerCase()===v.toLowerCase())){ alert(v+' already exists.'); renderSettings(); return; }
   const u=classUsage(oldName);
-  if(u.total && !confirm('Rename '+oldName+' to '+v+'?\n\n'+u.staff+' staff line(s) and '+u.movements+' movement(s) currently use '+oldName+'. They will all be re-pointed to '+v+' so no data is orphaned.')){ renderSettings(); return; }
+  if(u.total && !confirm('Rename '+oldName+' to '+v+'?\n\n'+u.staff+' staff line(s), '+u.movements+' movement(s) and '+u.roles+' role(s) currently use '+oldName+'. They will all be re-pointed to '+v+' so no data is orphaned.')){ renderSettings(); return; }
   state.settings.classes[i]=v;
   state.settings.baselines[v]=num(state.settings.baselines[oldName]); delete state.settings.baselines[oldName];
   state.settings.ceilings[v]=state.settings.ceilings[oldName]||{ceiling:0,additional:0}; delete state.settings.ceilings[oldName];
   state.staff.forEach(s=>{ if(str(s.subClass)===oldName) s.subClass=v; });
   state.movements.forEach(m=>{ if(str(m.subClass)===oldName) m.subClass=v; if(str(m.workClass)===oldName) m.workClass=v; });
+  teams().forEach(t=>(t.roles||[]).forEach(r=>{ if(str(r.cls)===oldName) r.cls=v; }));
   auditLog('Update','Settings','Classification '+v,'Classification '+oldName+' renamed to '+v,null,null,[oldName+' → '+v+' ('+u.staff+' staff, '+u.movements+' movements re-pointed)']);
   syncClasses(); persist(); rebuildAll();
 }
 function removeClassification(i){
   const cls=CLASSES[i]; const u=classUsage(cls);
-  if(u.total){ alert('Cannot remove '+cls+'.\n\n'+u.staff+' staff line(s) and '+u.movements+' movement(s) still use it. Rename it instead, or re-point those records to another classification first.'); return; }
+  if(u.total){ alert('Cannot remove '+cls+'.\n\n'+u.staff+' staff line(s), '+u.movements+' movement(s) and '+u.roles+' role(s) still use it. Rename it instead, or re-point those records to another classification first.'); return; }
   if(!confirm('Remove classification '+cls+'? Its baseline and ceiling will be deleted.')) return;
   state.settings.classes.splice(i,1);
   delete state.settings.baselines[cls]; delete state.settings.ceilings[cls];
@@ -1531,12 +1740,34 @@ function saveMovement(){
 function deleteMovement(){ if(!editingMovId) return; if(!confirm('Delete this movement permanently? (Archiving instead keeps the audit trail.)')) return; const before=deepCopy(state.movements.find(x=>str(x.id)===editingMovId)); state.movements=state.movements.filter(x=>str(x.id)!==editingMovId); auditLog('Delete','Movement',editingMovId,`Deleted ${before?str(before.staff):''} · ${before?str(before.type):''}`,before,null,['Movement permanently deleted']); closeModal('movModal'); persist(); rebuildAll(); }
 
 /* ============================ MODALS: STAFF ============================ */
+// Team select drives the Role select. Archived teams/roles only appear if this line already uses them.
+function fillStaffTeamRole(teamId,roleId){
+  const opts=[{v:'',label:'— Unassigned —'}];
+  teams().forEach(t=>{ if(t.active!==false||t.id===teamId) opts.push({v:t.id,label:t.name+(t.active===false?' (archived)':'')}); });
+  fillSelect('s_team',opts,teamId);
+  fillStaffRoles(teamId,roleId);
+}
+function fillStaffRoles(teamId,roleId){
+  const t=teams().find(x=>x.id===teamId);
+  const opts=[{v:'',label:t?(t.roles.length?'— Choose a role —':'— No roles in this team yet —'):'— Choose a team first —'}];
+  if(t) t.roles.forEach(r=>{ if(r.active!==false||r.id===roleId) opts.push({v:r.id,label:r.name+' ('+(r.cls||'no class')+')'+(r.active===false?' (archived)':'')}); });
+  fillSelect('s_role',opts,roleId);
+}
+function staffTeamChanged(){ fillStaffRoles(document.getElementById('s_team').value,''); updateStaffValidation(); }
+// Picking a role pre-fills the classification from the role; still editable afterwards.
+function staffRoleChanged(){
+  const f=findRole(document.getElementById('s_role').value);
+  if(f&&f.role.cls&&CLASSES.includes(f.role.cls)) document.getElementById('s_subClass').value=f.role.cls;
+  updateStaffValidation();
+}
 function openStaff(idx){
   editingStaffIdx=idx;
-  const s= idx!==null? state.staff[idx] : {name:'',subClass:defaultClass(),subFTE:'',posId:'',posTitle:'',empType:'Permanent',active:'Yes',contractStart:'',contractEnd:'',notes:''};
+  const s= idx!==null? state.staff[idx] : {name:'',roleId:'',subClass:defaultClass(),subFTE:'',posId:'',posTitle:'',empType:'Permanent',active:'Yes',contractStart:'',contractEnd:'',notes:''};
   document.getElementById('staffModalTitle').textContent=idx!==null?'Edit staff line':'Add staff line';
   document.getElementById('s_delBtn').style.display=idx!==null?'':'none';
   document.getElementById('s_name').value=str(s.name);
+  const cur=findRole(str(s.roleId));
+  fillStaffTeamRole(cur?cur.team.id:'',cur?cur.role.id:'');
   fillSelect('s_subClass',CLASSES,str(s.subClass)||defaultClass());
   document.getElementById('s_subFTE').value=s.subFTE??'';
   document.getElementById('s_posId').value=str(s.posId);
