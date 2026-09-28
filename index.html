@@ -128,6 +128,22 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .modal-foot .spacer{flex:1}
 @media(max-width:760px){.topbar{position:sticky;top:0;width:calc(100% - 20px);min-height:auto;margin:10px auto 0;padding:14px;flex-direction:column;align-items:flex-start}.top-actions{margin-left:0;width:100%;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}.top-actions::-webkit-scrollbar{display:none}.app{grid-template-columns:1fr;margin:16px auto 22px;padding:0 16px}.rail{position:static;flex-direction:row;flex-wrap:wrap;top:auto;max-height:none;overflow:visible}.grid2{grid-template-columns:1fr}}
 .hint{font-size:11.5px;color:var(--muted);font-weight:600}
+.rot-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:14px;align-items:start;margin-bottom:18px}
+.rot-area{min-width:0;border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow-sm);padding:14px 15px}
+.rot-area-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:11px}
+.rot-area-name{font-size:16px;font-weight:900;letter-spacing:-.01em}
+.rot-area-tot{font-size:11.5px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}
+.rot-slot{border:1px solid var(--line);border-left:5px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:9px;background:#fff}
+.rot-slot:last-child{margin-bottom:0}
+.rot-slot.high{border-left-color:var(--danger);background:#FFFBFB}
+.rot-slot.warn{border-left-color:var(--warn);background:#FFFDF3}
+.rot-slot.good{border-left-color:var(--good)}
+.rot-slot-top{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.rot-owner{font-size:14.5px;font-weight:850;letter-spacing:-.01em}
+.rot-fte{font-size:12.5px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums;margin-left:auto}
+.rot-asg{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 8px;margin-top:6px;border-radius:9px;background:var(--bg-2);cursor:pointer;font-size:12.5px}
+.rot-asg:hover{background:var(--accent-soft)}
+.rot-asg b{font-weight:800}
 .team-block{border:1px solid var(--line);border-radius:15px;background:#fff;box-shadow:var(--shadow-sm);padding:14px 16px;margin-bottom:14px}
 .team-block.is-archived{opacity:.65;background:var(--bg-2)}
 .team-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
@@ -292,6 +308,7 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
     <button class="navbtn" data-view="budget" onclick="go('budget')"><span class="ic">$</span> Budget</button>
     <button class="navbtn" data-view="planner" onclick="go('planner')"><span class="ic">▣</span> Planner</button>
     <button class="navbtn" data-view="timeline" onclick="go('timeline')"><span class="ic">👤</span> Staff Details</button>
+    <button class="navbtn" data-view="rotations" onclick="go('rotations')"><span class="ic">◷</span> Rotations <span class="ct" id="navRot"></span></button>
     <div class="rl">Data</div>
     <button class="navbtn" data-view="movements" onclick="go('movements')"><span class="ic">⇄</span> Movements <span class="ct" id="navMov"></span></button>
     <button class="navbtn" data-view="staff" onclick="go('staff')"><span class="ic">☰</span> Staff Register <span class="ct" id="navStaff"></span></button>
@@ -323,6 +340,27 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
       <div class="card" id="alertCard">
         <div class="card-head" onclick="toggleCard(this)"><div><h3>Contract horizon</h3><div class="card-sub">Temp contracts and dated movements by time to expiry — soonest first.</div></div><span class="chev">▾</span></div>
         <div class="card-body"><div id="dashAlerts"></div></div>
+      </div>
+    </section>
+
+    <!-- ROTATIONS -->
+    <section class="view" id="view-rotations">
+      <div class="viewhead"><div><h2>Rotation Planner</h2><div class="vsub">Who is working in each role, in each pay cycle. Plan ahead, and see where leave or over-allocation gets in the way.</div></div>
+        <div class="spacer"></div><button class="btn primary" onclick="openRotation(null)">+ Add assignment</button></div>
+      <div class="card"><div class="ctrlrow">
+        <div class="field" style="min-width:230px"><label>Pay cycle</label><select id="rotCycle" onchange="renderRotations()"></select></div>
+        <div class="field" style="min-width:190px"><label>Team</label><select id="rotTeam" onchange="renderRotations()"></select></div>
+      </div></div>
+      <div class="sectionnote">An assignment puts one person from the Staff Register into one role for a date range, with its own FTE. A role can hold several people and a person can be split across roles. Assignments are your plan; leave and cover are read live from Movements and flagged when they clash with the plan. Teams and roles are built in Settings.</div>
+      <div id="rotSummary"></div>
+      <div id="rotBoard"></div>
+      <div class="card">
+        <div class="card-head" onclick="toggleCard(this)"><div><h3>Plan ahead — next 8 pay cycles</h3><div class="card-sub">Assigned FTE / funded FTE per role, starting from the selected cycle.</div></div><span class="chev">▾</span></div>
+        <div class="card-body"><div id="rotAhead"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head" onclick="toggleCard(this)"><div><h3>Staff allocation — selected cycle</h3><div class="card-sub">Register FTE against FTE assigned to roles. Shows who is unallocated or over-allocated.</div></div><span class="chev">▾</span></div>
+        <div class="card-body"><div id="rotPeople"></div></div>
       </div>
     </section>
 
@@ -409,7 +447,7 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
       <div class="viewhead">
         <div><h2>Audit History</h2><div class="vsub">Local change log for staff lines, movements, settings and administrative changes.</div></div>
         <div class="spacer"></div>
-        <div class="field" style="min-width:170px"><label>Filter</label><select id="auditFilter" onchange="renderAudit()"><option value="all">All changes</option><option value="Movement">Movements</option><option value="Staff">Staff</option><option value="Settings">Settings</option><option value="Data">Data</option></select></div>
+        <div class="field" style="min-width:170px"><label>Filter</label><select id="auditFilter" onchange="renderAudit()"><option value="all">All changes</option><option value="Movement">Movements</option><option value="Staff">Staff</option><option value="Rotation">Rotations</option><option value="Settings">Settings</option><option value="Data">Data</option></select></div>
         <button class="btn danger" onclick="clearAudit()">Clear audit</button>
       </div>
       <div class="sectionnote">The audit history is stored locally in this browser and included in exported backups. It is not a formal enterprise audit log, but it gives a practical history of what changed and when.</div>
@@ -540,6 +578,30 @@ table.timeline thead .tl-label{z-index:3;background:var(--bg-2)}
   </div>
 </div>
 
+<!-- ROTATION MODAL -->
+<div class="modal-bg" id="rotModal">
+  <div class="modal">
+    <h3 id="rotModalTitle">Add assignment</h3>
+    <div class="msub">One row = one person in one role for a date range. Split someone across two roles = two assignments.</div>
+    <div class="grid2">
+      <div class="field full"><label>Role</label><select id="r_role" onchange="rotSuggest()"></select></div>
+      <div class="field full"><label>Staff member (from Staff Register)</label><select id="r_staff" onchange="rotSuggest()"></select></div>
+      <div class="field"><label>FTE in this role</label><input type="number" step="0.01" min="0" id="r_fte"></div>
+      <div class="field"><label>&nbsp;</label><span class="hint" id="r_hint"></span></div>
+      <div class="field"><label>Start date</label><input type="date" id="r_start" onchange="rotSuggest()"></div>
+      <div class="field"><label>End date (blank = ongoing)</label><input type="date" id="r_end"></div>
+      <div class="field full"><label>Notes</label><textarea id="r_notes" rows="2"></textarea></div>
+    </div>
+    <div class="validation-panel is-clean" id="rotValidation"><div class="vh">Validation ready</div></div>
+    <div class="modal-foot">
+      <button class="btn danger" id="r_delBtn" onclick="deleteRotation()">Delete</button>
+      <div class="spacer"></div>
+      <button class="btn" onclick="closeModal('rotModal')">Cancel</button>
+      <button class="btn primary" onclick="saveRotation()">Save assignment</button>
+    </div>
+  </div>
+</div>
+
 <datalist id="staffNames"></datalist>
 
 <script>
@@ -557,6 +619,13 @@ const SEED = {
   { "id":"MV-0001", "owner":"", "staff":"Demo Clinician (HP3)", "subClass":"HP3", "subFTE":1, "empArr":"Permanent", "workPosId":"", "workPosTitle":"", "workClass":"HP3", "type":"Leave", "fteMoved":1, "start":"2026-06-15", "end":"2026-09-15", "vmcNum":"", "vmcUrl":"", "procNum":"", "adminStatus":"Confirmed", "absenceType":"LSL", "archived":"No", "notes":"Example long service leave." },
   { "id":"MV-0002", "owner":"Demo Clinician (HP3)", "staff":"Demo Senior (HP4)", "subClass":"HP4", "subFTE":1, "empArr":"Permanent", "workPosId":30000003, "workPosTitle":"Physiotherapist", "workClass":"HP3", "type":"Backfill", "fteMoved":1, "start":"2026-06-15", "end":"2026-09-15", "vmcNum":"", "vmcUrl":"", "procNum":"", "adminStatus":"VMC Approved", "absenceType":"", "archived":"No", "notes":"Example backfill covering the leave above." },
   { "id":"MV-0003", "owner":"Demo Senior (HP4)", "staff":"Demo Temp Soon (HP3)", "subClass":"HP3", "subFTE":0.5, "empArr":"Temporary", "workPosId":30000002, "workPosTitle":"Physiotherapist Senior", "workClass":"HP4", "type":"Acting Higher Duties", "fteMoved":0.5, "start":"2026-06-15", "end":"2026-09-15", "vmcNum":"", "vmcUrl":"", "procNum":"", "adminStatus":"Awaiting Approval", "absenceType":"", "archived":"No", "notes":"Example acting-up movement." }
+ ],
+ "rotations": [
+  { "id":"ROT-001", "roleId":"R-DEMO1", "staff":"Demo Lead (HP5)", "fte":1, "start":"2026-01-01", "end":"", "notes":"" },
+  { "id":"ROT-002", "roleId":"R-DEMO2", "staff":"Demo Senior (HP4)", "fte":1, "start":"2026-01-01", "end":"", "notes":"" },
+  { "id":"ROT-003", "roleId":"R-DEMO3", "staff":"Demo Clinician (HP3)", "fte":1, "start":"2026-01-01", "end":"", "notes":"On leave in Movements — flagged in the planner" },
+  { "id":"ROT-004", "roleId":"R-DEMO3", "staff":"Demo Temp Soon (HP3)", "fte":0.5, "start":"2026-01-01", "end":"2026-08-15", "notes":"" },
+  { "id":"ROT-005", "roleId":"R-DEMO5", "staff":"Demo Assistant (CA3)", "fte":1, "start":"2026-01-01", "end":"", "notes":"" }
  ],
  "settings": {
   "serviceName": "Redcliffe Physiotherapy",
@@ -629,6 +698,7 @@ function buildCycles(){
   const all=[];
   state.movements.forEach(m=>{ [m.start,m.end].forEach(d=>{const t=parseDate(d); if(t!==null) all.push(t);}); });
   state.staff.forEach(s=>{ [s.contractStart,s.contractEnd].forEach(d=>{const t=parseDate(d); if(t!==null) all.push(t);}); });
+  (state.rotations||[]).forEach(a=>{ [a.start,a.end].forEach(d=>{const t=parseDate(d); if(t!==null) all.push(t);}); });
   all.push(parseDate(isoToday()));
   if(all.length){ lo=Math.min(lo,...all); hi=Math.max(hi,...all); }
   hi += 365*MS_DAY;
@@ -820,6 +890,7 @@ function renderValidationPanel(id,result){
 function updateMovementValidation(){ renderValidationPanel('movValidation',validateMovementObject(readMovementForm(),editingMovId)); }
 function updateStaffValidation(){ renderValidationPanel('staffValidation',validateStaffObject(readStaffForm(),editingStaffIdx)); }
 function wireValidation(){
+  ['r_fte','r_end','r_notes'].forEach(id=>{ const el=document.getElementById(id); if(el&&!el.dataset.vwired){ el.addEventListener('input',updateRotValidation); el.dataset.vwired='1'; }});
   ['m_staff','m_subClass','m_subFTE','m_type','m_fteMoved','m_workClass','m_empArr','m_owner','m_start','m_end','m_absenceType','m_adminStatus','m_vmcNum','m_vmcUrl','m_archived'].forEach(id=>{ const el=document.getElementById(id); if(el&&!el.dataset.vwired){ el.addEventListener('input',updateMovementValidation); el.addEventListener('change',updateMovementValidation); el.dataset.vwired='1'; }});
   ['s_name','s_team','s_role','s_subClass','s_subFTE','s_posId','s_posTitle','s_empType','s_active','s_contractStart','s_contractEnd'].forEach(id=>{ const el=document.getElementById(id); if(el&&!el.dataset.vwired){ el.addEventListener('input',updateStaffValidation); el.addEventListener('change',updateStaffValidation); el.dataset.vwired='1'; }});
 }
@@ -858,6 +929,8 @@ function applyBranding(){
 function ensureShape(){
   state.staff=state.staff||[]; state.movements=state.movements||[];
   state.audit=Array.isArray(state.audit)?state.audit:[];
+  state.rotations=Array.isArray(state.rotations)?state.rotations:[];
+  state.rotations.forEach(a=>{ if(!str(a.id)) a.id=newId('ROT'); a.staff=str(a.staff); a.roleId=str(a.roleId); a.fte=num(a.fte); a.start=str(a.start); a.end=str(a.end); a.notes=str(a.notes); });
   state.settings=state.settings||{};
   if(state.settings.serviceName===undefined) state.settings.serviceName='Redcliffe Physiotherapy';
   if(state.settings.orgName===undefined) state.settings.orgName='Metro North Health';
@@ -1515,7 +1588,8 @@ function moveRoleToTeam(teamId,roleId,newTeamId){
 function removeTeam(teamId){
   const t=teams().find(x=>x.id===teamId); if(!t) return;
   const used=t.roles.reduce((a,r)=>a+roleStaff(r.id).length,0);
-  if(used){ alert('Cannot delete '+t.name+'.\n\n'+used+' staff line(s) are assigned to roles in this team. Reassign them in the Staff Register first, or archive the team instead.'); return; }
+  const usedR=t.roles.reduce((a,r)=>a+state.rotations.filter(x=>str(x.roleId)===r.id).length,0);
+  if(used||usedR){ alert('Cannot delete '+t.name+'.\n\n'+used+' staff line(s) and '+usedR+' rotation assignment(s) use roles in this team. Reassign or delete them first, or archive the team instead.'); return; }
   if(!confirm('Delete team '+t.name+(t.roles.length?' and its '+t.roles.length+' role(s)':'')+'?\n\nNo staff are assigned to it. Archive instead if you may want it back.')) return;
   state.settings.teams=teams().filter(x=>x!==t);
   auditLog('Delete','Settings','Team '+t.name,'Team '+t.name+' deleted',deepCopy(t),null,['Deleted team '+t.name+' with '+t.roles.length+' role(s)']);
@@ -1523,8 +1597,8 @@ function removeTeam(teamId){
 }
 function removeRole(teamId,roleId){
   const t=teams().find(x=>x.id===teamId); const r=t&&t.roles.find(x=>x.id===roleId); if(!r) return;
-  const n=roleStaff(roleId).length;
-  if(n){ alert('Cannot delete '+r.name+'.\n\n'+n+' staff line(s) are assigned to it. Reassign them in the Staff Register first, or archive the role instead.'); return; }
+  const n=roleStaff(roleId).length, nr=state.rotations.filter(x=>str(x.roleId)===roleId).length;
+  if(n||nr){ alert('Cannot delete '+r.name+'.\n\n'+n+' staff line(s) and '+nr+' rotation assignment(s) use it. Reassign or delete them first, or archive the role instead.'); return; }
   if(!confirm('Delete role '+r.name+' from '+t.name+'?')) return;
   t.roles=t.roles.filter(x=>x!==r);
   auditLog('Delete','Settings','Role '+t.name+' / '+r.name,'Role '+r.name+' deleted from '+t.name,deepCopy(r),null,['Deleted role '+r.name]);
@@ -1550,7 +1624,7 @@ function renderTeams(){
       <div class="team-head">
         <input type="text" value="${esc(t.name)}" onchange="renameTeam(${esc(jsq(t.id))},this.value)" aria-label="Team name">
         ${live?'':'<span class="pill neutral">Archived</span>'}
-        <span class="team-tot">${funded} FTE funded · ${filled} FTE filled · ${roles.length} role${roles.length===1?'':'s'}</span>
+        <span class="team-tot">${funded} FTE funded · ${filled} FTE substantive · ${roles.length} role${roles.length===1?'':'s'}</span>
         <div class="rowact" style="margin-left:auto">
           <button class="iconbtn" onclick="moveTeam(${esc(jsq(t.id))},-1)" title="Move up"${ti===0?' disabled':''}>↑</button>
           <button class="iconbtn" onclick="moveTeam(${esc(jsq(t.id))},1)" title="Move down"${ti===ts.length-1?' disabled':''}>↓</button>
@@ -1559,7 +1633,7 @@ function renderTeams(){
         </div>
       </div>`;
     if(roles.length){
-      h+='<div class="tbl-wrap"><table><thead><tr><th>Role</th><th>Classification</th><th class="num">Funded FTE</th><th class="num">Filled FTE</th><th>Status</th>'+(otherTeams.length?'<th>Move to team</th>':'')+'<th></th></tr></thead><tbody>';
+      h+='<div class="tbl-wrap"><table><thead><tr><th>Role</th><th>Classification</th><th class="num">Funded FTE</th><th class="num" title="FTE of active Staff Register lines assigned to this role as their substantive role">Substantive FTE</th><th>Status</th>'+(otherTeams.length?'<th>Move to team</th>':'')+'<th></th></tr></thead><tbody>';
       roles.forEach((r,ri)=>{
         const rl=r.active!==false, fl=roleFilledFTE(r.id), fu=num(r.fte), d=r2(fl-fu), n=roleStaff(r.id).length;
         let st;
@@ -1798,6 +1872,239 @@ function saveStaff(){
 }
 function deleteStaff(){ if(editingStaffIdx===null) return; if(!confirm('Delete this staff line permanently?')) return; const before=deepCopy(state.staff[editingStaffIdx]); state.staff.splice(editingStaffIdx,1); auditLog('Delete','Staff',str(before.name),`Deleted ${str(before.name)} · ${str(before.subClass)} · ${r2(num(before.subFTE))} FTE`,before,null,['Staff line permanently deleted']); closeModal('staffModal'); persist(); rebuildAll(); }
 
+
+/* ============================ ROTATION PLANNER ============================ */
+let editingRotId=null;
+function rotInRange(a,cs,ce){ const st=parseDate(a.start), en=parseDate(a.end); return st!==null&&st<=ce&&(en===null||en>=cs); }
+function rotRegisterFTE(name){ return r2(state.staff.filter(s=>str(s.name)===str(name)&&str(s.active)!=='No'&&str(s.empType)!=='Casual').reduce((a,s)=>a+num(s.subFTE),0)); }
+function rotPersonLoad(name,cs,ce,exceptId){ return r2(state.rotations.filter(a=>str(a.staff)===str(name)&&str(a.id)!==str(exceptId||'')&&rotInRange(a,cs,ce)).reduce((t,a)=>t+num(a.fte),0)); }
+function rotRoleLoad(roleId,cs,ce,exceptId){ return r2(state.rotations.filter(a=>str(a.roleId)===str(roleId)&&str(a.id)!==str(exceptId||'')&&rotInRange(a,cs,ce)).reduce((t,a)=>t+num(a.fte),0)); }
+function rotAbsences(name,cs,ce){ return state.movements.filter(m=>str(m.staff)===str(name)&&['Leave','Secondment Out'].includes(str(m.type))&&str(m.archived).toLowerCase()!=='yes'&&inCycle(m,cs,ce)); }
+function rotCover(name,cs,ce){ return state.movements.filter(m=>str(m.owner)===str(name)&&COVER_TYPES.includes(str(m.type))&&str(m.archived).toLowerCase()!=='yes'&&inCycle(m,cs,ce)); }
+function rotFlags(a,cs,ce){
+  const f=[], name=str(a.staff);
+  if(!state.staff.some(s=>str(s.name)===name)) f.push({k:'warn',t:'Not on Staff Register'});
+  else{
+    const reg=rotRegisterFTE(name), load=rotPersonLoad(name,cs,ce);
+    if(reg>0&&load>reg+0.001) f.push({k:'warn',t:'Assigned '+load+' FTE across roles, holds '+reg});
+  }
+  rotAbsences(name,cs,ce).forEach(m=>{
+    const cov=rotCover(name,cs,ce).map(c=>str(c.staff));
+    f.push({k:cov.length?'neutral':'warn',t:str(m.type)+(num(m.fteMoved)?' '+num(m.fteMoved)+' FTE':'')+(str(m.end)?' until '+fmtDate(m.end):'')+(cov.length?' — covered by '+cov.join(', '):' — no cover recorded')});
+  });
+  return f;
+}
+function rotRoleCycle(role,cs,ce){
+  const list=state.rotations.filter(a=>str(a.roleId)===role.id&&rotInRange(a,cs,ce)).map(a=>({a,flags:rotFlags(a,cs,ce)}))
+    .sort((x,y)=>str(x.a.staff).localeCompare(str(y.a.staff)));
+  const filled=r2(list.reduce((t,x)=>t+num(x.a.fte),0)), funded=r2(num(role.fte));
+  const short=r2(Math.max(0,funded-filled)), over=r2(Math.max(0,filled-funded));
+  let sev='good';
+  if(list.some(x=>x.flags.some(f=>f.k==='warn'))||over>0.001) sev='warn';
+  if(short>0.001) sev=(filled<=0.001)?'high':'warn';
+  return {role,list,filled,funded,short,over,sev};
+}
+function rotLiveRoles(){
+  const out=[];
+  teams().forEach(t=>{ if(t.active===false) return; (t.roles||[]).forEach(r=>{ if(r.active!==false) out.push({team:t,role:r}); }); });
+  return out;
+}
+function renderRotationControls(){
+  const {cycles,len}=buildCycles();
+  const sel=document.getElementById('rotCycle');
+  if(sel){ const prev=sel.value; sel.innerHTML=cycles.map((c,i)=>`<option value="${i}">${cycleLabel(c,len)}</option>`).join(''); sel.value=prev!==''?prev:currentCycleIndex(cycles,len); }
+  const ts=document.getElementById('rotTeam');
+  if(ts){ const prev=ts.value||'all'; ts.innerHTML='<option value="all">All teams</option>'+teams().filter(t=>t.active!==false).map(t=>`<option value="${esc(t.id)}">${esc(t.name)}</option>`).join(''); ts.value=[...ts.options].some(o=>o.value===prev)?prev:'all'; }
+}
+function renderRotations(){
+  renderRotationControls();
+  const {csMs,ceMs,index,len}=cycleFromSelect('rotCycle');
+  const teamFilter=(document.getElementById('rotTeam')||{}).value||'all';
+  const nav=document.getElementById('navRot');
+  const live=rotLiveRoles();
+  const all=live.map(x=>Object.assign({team:x.team},rotRoleCycle(x.role,csMs,ceMs)));
+  if(nav){ const n=all.filter(x=>x.sev!=='good').length; nav.textContent=n||''; }
+  const sumEl=document.getElementById('rotSummary'), board=document.getElementById('rotBoard'), ahead=document.getElementById('rotAhead'), ppl=document.getElementById('rotPeople');
+  if(!sumEl) return;
+  if(!live.length){
+    sumEl.innerHTML=''; ahead.innerHTML=''; ppl.innerHTML='';
+    board.innerHTML='<div class="card"><div class="card-body"><div class="empty">No teams or roles yet. Build your structure first in Settings → Teams &amp; roles, then come back to plan who works where.<br><br><button class="btn primary" onclick="go(\'settings\')">Go to Settings</button></div></div></div>';
+    return;
+  }
+  const shown=all.filter(x=>teamFilter==='all'||x.team.id===teamFilter);
+  const funded=r2(shown.reduce((t,x)=>t+x.funded,0)), filled=r2(shown.reduce((t,x)=>t+x.filled,0));
+  const issues=shown.filter(x=>x.sev!=='good').length;
+  sumEl.innerHTML=`<div class="card"><div class="ctrlrow" style="gap:26px">
+    <div><div class="hint">Funded FTE</div><b style="font-size:20px">${funded}</b></div>
+    <div><div class="hint">Assigned this cycle</div><b style="font-size:20px">${filled}</b></div>
+    <div><div class="hint">Unfilled</div><b style="font-size:20px">${r2(shown.reduce((t,x)=>t+x.short,0))}</b></div>
+    <div><div class="hint">Roles needing attention</div><b style="font-size:20px">${issues}</b></div>
+  </div></div>`;
+  let h='<div class="rot-board">';
+  teams().filter(t=>t.active!==false&&(teamFilter==='all'||t.id===teamFilter)).forEach(t=>{
+    const rs=shown.filter(x=>x.team.id===t.id);
+    const tf=r2(rs.reduce((a,x)=>a+x.filled,0)), tt=r2(rs.reduce((a,x)=>a+x.funded,0));
+    h+=`<div class="rot-area"><div class="rot-area-head"><div class="rot-area-name">${esc(t.name)}</div><div class="rot-area-tot">${tf} of ${tt} FTE assigned</div></div>`;
+    if(!rs.length) h+='<div class="hint">No active roles in this team.</div>';
+    rs.forEach(x=>{
+      let status;
+      if(x.short>0.001) status=`<span class="pill ${x.sev==='high'?'danger':'warn'}">${signed(-x.short)} unfilled</span>`;
+      else if(x.over>0.001) status=`<span class="pill warn">${signed(x.over)} over funded</span>`;
+      else if(x.funded>0) status='<span class="pill good">Fully assigned</span>';
+      else status='<span class="hint">no funded FTE set for this role</span>';
+      h+=`<div class="rot-slot ${x.sev}">
+        <div class="rot-slot-top"><span class="pill neutral">${esc(x.role.cls||'—')}</span><span class="rot-owner">${esc(x.role.name)}</span><span class="rot-fte">${x.filled} / ${x.funded} FTE</span></div>`;
+      x.list.forEach(({a,flags})=>{
+        h+=`<div class="rot-asg" onclick="openRotation(${esc(jsq(a.id))})"><b>${esc(str(a.staff))}</b> ${r2(num(a.fte))} FTE <span class="hint">${esc(fmtDate(a.start))} → ${a.end?esc(fmtDate(a.end)):'ongoing'}</span>`
+          +flags.map(f=>`<span class="pill ${f.k}">${esc(f.t)}</span>`).join('')+'</div>';
+      });
+      if(!x.list.length) h+='<div class="hint" style="margin-top:6px">Nobody assigned in this cycle.</div>';
+      h+=`<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${status}<button class="iconbtn" onclick="openRotation(null,${esc(jsq(x.role.id))})">+ Assign</button></div></div>`;
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  const orphans=state.rotations.filter(a=>!findRole(str(a.roleId)));
+  if(orphans.length) h+=`<div class="sectionnote" style="background:var(--warn-bg);color:var(--warn)">${orphans.length} assignment(s) point to a role that no longer exists and are not shown here. Re-import a backup to recover the structure.</div>`;
+  board.innerHTML=h;
+
+  const {cycles}=buildCycles();
+  const cols=[]; for(let k=0;k<8&&index+k<cycles.length;k++) cols.push(cycles[index+k]);
+  let g='<div class="tbl-wrap"><table><thead><tr><th>Team / role</th>'+cols.map(c=>`<th class="num">${esc(fmtDate(new Date(c).toISOString().slice(0,10)).slice(0,6))}</th>`).join('')+'</tr></thead><tbody>';
+  shown.forEach(x=>{
+    g+=`<tr><td><b>${esc(x.team.name)}</b> · ${esc(x.role.name)} <span class="hint">${esc(x.role.cls||'')}</span></td>`;
+    cols.forEach(c=>{
+      const ce=c+len-MS_DAY, f=rotRoleLoad(x.role.id,c,ce), fu=x.funded;
+      let cell;
+      if(fu===0&&f===0) cell='<span class="hint">—</span>';
+      else{ const cl=Math.abs(f-fu)<0.001?'good':(f<=0.001?'danger':'warn'); cell=`<span class="pill ${cl}">${f}/${fu}</span>`; }
+      g+=`<td class="num">${cell}</td>`;
+    });
+    g+='</tr>';
+  });
+  ahead.innerHTML=g+'</tbody></table></div><div class="hint" style="margin-top:8px">Green = fully assigned · amber = part filled or over funded · red = nobody assigned. Column = first day of the pay cycle.</div>';
+
+  const names=distinctStaffNames().filter(n=>rotRegisterFTE(n)>0);
+  const rows=names.map(n=>{ const reg=rotRegisterFTE(n), load=rotPersonLoad(n,csMs,ceMs), d=r2(reg-load); return {n,reg,load,d}; })
+    .filter(x=>Math.abs(x.d)>0.001).sort((a,b)=>b.d-a.d);
+  ppl.innerHTML=rows.length?tableHTML(['Staff member','Register FTE','Assigned FTE','Difference',''],rows.map(x=>[
+    esc(x.n),x.reg,x.load,signed(-x.d),
+    x.d>0?`<span class="pill warn">${x.d} FTE unallocated</span>`:`<span class="pill danger">${r2(-x.d)} FTE over-allocated</span>`]),''):'<div class="empty">Everyone on the register is fully allocated in this cycle.</div>';
+}
+function rotRoleOptions(selId){
+  let h='<option value="">— Choose a role —</option>';
+  teams().forEach(t=>{
+    const rs=(t.roles||[]).filter(r=>(t.active!==false&&r.active!==false)||r.id===selId);
+    if(!rs.length) return;
+    h+=`<optgroup label="${esc(t.name)}">`+rs.map(r=>`<option value="${esc(r.id)}"${r.id===selId?' selected':''}>${esc(r.name)} (${esc(r.cls||'no class')}, ${r2(num(r.fte))} FTE)${(t.active===false||r.active===false)?' — archived':''}</option>`).join('')+'</optgroup>';
+  });
+  return h;
+}
+function openRotation(id,presetRole){
+  editingRotId=id||null;
+  const a=id?state.rotations.find(x=>str(x.id)===str(id)):{roleId:presetRole||'',staff:'',fte:'',start:isoToday(),end:'',notes:''};
+  if(!a) return;
+  document.getElementById('rotModalTitle').textContent=id?'Edit assignment':'Add assignment';
+  document.getElementById('r_delBtn').style.display=id?'':'none';
+  document.getElementById('r_role').innerHTML=rotRoleOptions(str(a.roleId));
+  const names=distinctStaffNames(), cur=str(a.staff);
+  document.getElementById('r_staff').innerHTML='<option value="">— Choose staff member —</option>'
+    +names.map(n=>`<option value="${esc(n)}"${n===cur?' selected':''}>${esc(n)}</option>`).join('')
+    +((cur&&!names.includes(cur))?`<option value="${esc(cur)}" selected>${esc(cur)} (not on register)</option>`:'');
+  document.getElementById('r_fte').value=a.fte===''?'':num(a.fte);
+  document.getElementById('r_start').value=str(a.start).slice(0,10);
+  document.getElementById('r_end').value=str(a.end).slice(0,10);
+  document.getElementById('r_notes').value=str(a.notes);
+  document.getElementById('r_hint').textContent='';
+  updateRotValidation();
+  document.getElementById('rotModal').classList.add('open');
+}
+function readRotationForm(){
+  const g=i=>document.getElementById(i).value;
+  return {id:editingRotId||'',roleId:str(g('r_role')),staff:str(g('r_staff')),fte:g('r_fte')===''?'':Number(g('r_fte')),start:g('r_start'),end:g('r_end'),notes:str(g('r_notes'))};
+}
+function rotSpan(st,en){
+  const {cycles,len}=buildCycles(); const hi=en===null?Infinity:en;
+  return cycles.filter(c=>c<=hi&&c+len-MS_DAY>=st).slice(0,80).map(c=>({cs:c,ce:c+len-MS_DAY}));
+}
+// Pre-fill FTE with what is both free on the person and open on the role at the start date.
+function rotSuggest(){
+  const o=readRotationForm(), st=parseDate(o.start);
+  const fEl=document.getElementById('r_fte'), hint=document.getElementById('r_hint');
+  const f=findRole(o.roleId);
+  if(st!==null&&o.staff&&f){
+    const {cycles,len}=buildCycles(); let cs=cycles[0]; cycles.forEach(c=>{ if(c<=st) cs=c; });
+    const ce=cs+len-MS_DAY;
+    const freePerson=r2(rotRegisterFTE(o.staff)-rotPersonLoad(o.staff,cs,ce,editingRotId));
+    const openRole=r2(num(f.role.fte)-rotRoleLoad(o.roleId,cs,ce,editingRotId));
+    hint.textContent=o.staff+' has '+Math.max(0,freePerson)+' FTE free · role has '+Math.max(0,openRole)+' FTE open (pay cycle of start date)';
+    const sug=r2(Math.min(freePerson,openRole));
+    if(fEl.value===''&&sug>0) fEl.value=sug;
+  } else hint.textContent='';
+  updateRotValidation();
+}
+function validateRotationObject(o){
+  const errors=[],warnings=[];
+  const st=parseDate(o.start), en=parseDate(o.end), fte=num(o.fte), f=findRole(o.roleId);
+  if(!o.roleId) errors.push('Role is required.');
+  else if(!f) errors.push('That role no longer exists.');
+  if(!o.staff) errors.push('Staff member is required.');
+  if(!(fte>0)) errors.push('FTE must be greater than 0.');
+  if(st===null) errors.push('Start date is required.');
+  if(st!==null&&en!==null&&en<st) errors.push('End date is before start date.');
+  if(errors.length) return {errors,warnings};
+  if(f.team.active===false||f.role.active===false) warnings.push('This role or its team is archived.');
+  const onReg=state.staff.some(s=>str(s.name)===o.staff);
+  if(!onReg) warnings.push(o.staff+' is not on the Staff Register.');
+  else{
+    const reg=rotRegisterFTE(o.staff);
+    if(reg>0&&fte>reg+0.001) warnings.push(o.staff+' holds '+reg+' FTE on the register but this assignment is '+r2(fte)+' FTE.');
+    const classes=state.staff.filter(s=>str(s.name)===o.staff&&str(s.active)!=='No').map(s=>str(s.subClass));
+    if(str(f.role.cls)&&classes.length&&!classes.includes(str(f.role.cls))) warnings.push(o.staff+' is on the register as '+[...new Set(classes)].join('/')+' but this role is '+f.role.cls+'. Fine if it is an acting or development placement.');
+  }
+  const span=rotSpan(st,en);
+  const overP=[],overR=[],abs=[];
+  span.forEach(({cs,ce})=>{
+    const label=fmtDate(new Date(cs).toISOString().slice(0,10));
+    const reg=rotRegisterFTE(o.staff);
+    if(onReg&&reg>0&&r2(rotPersonLoad(o.staff,cs,ce,editingRotId)+fte)>reg+0.001) overP.push(label);
+    if(num(f.role.fte)>0&&r2(rotRoleLoad(o.roleId,cs,ce,editingRotId)+fte)>num(f.role.fte)+0.001) overR.push(label);
+    if(rotAbsences(o.staff,cs,ce).length) abs.push(label);
+  });
+  const some=a=>a.length>3?a.slice(0,3).join(', ')+' and '+(a.length-3)+' more':a.join(', ');
+  if(overP.length) warnings.push(o.staff+' would be assigned more FTE than they hold in '+overP.length+' pay cycle(s), from '+some(overP)+'.');
+  if(num(f.role.fte)<=0) warnings.push('This role has no funded FTE set in Settings.');
+  else if(overR.length) warnings.push(f.team.name+' / '+f.role.name+' would exceed its '+r2(num(f.role.fte))+' FTE funding in '+overR.length+' pay cycle(s), from '+some(overR)+'.');
+  if(abs.length) warnings.push(o.staff+' has leave or secondment out in Movements during '+abs.length+' pay cycle(s) of this assignment, from '+some(abs)+'.');
+  return {errors,warnings};
+}
+function updateRotValidation(){ renderValidationPanel('rotValidation',validateRotationObject(readRotationForm())); }
+function saveRotation(){
+  const o=readRotationForm();
+  const result=validateRotationObject(o);
+  renderValidationPanel('rotValidation',result);
+  if(!confirmWarnings(result)) return;
+  const f=findRole(o.roleId);
+  const label=o.staff+' → '+f.team.name+' / '+f.role.name+' · '+r2(num(o.fte))+' FTE';
+  if(editingRotId){
+    const idx=state.rotations.findIndex(x=>str(x.id)===editingRotId);
+    const before=deepCopy(state.rotations[idx]);
+    state.rotations[idx]=o; auditLog('Update','Rotation',label,'Updated assignment '+label,before,o);
+  } else {
+    o.id=newId('ROT'); state.rotations.push(o);
+    auditLog('Create','Rotation',label,'Added assignment '+label,null,o,fieldChanges(null,o));
+  }
+  closeModal('rotModal'); persist(); rebuildAll();
+}
+function deleteRotation(){
+  if(!editingRotId) return;
+  const idx=state.rotations.findIndex(x=>str(x.id)===editingRotId); if(idx<0) return;
+  if(!confirm('Delete this assignment?')) return;
+  const before=deepCopy(state.rotations[idx]); state.rotations.splice(idx,1);
+  auditLog('Delete','Rotation',str(before.staff),'Deleted assignment for '+str(before.staff),before,null,['Assignment deleted']);
+  closeModal('rotModal'); persist(); rebuildAll();
+}
+
 /* ============================ SHARED RENDER HELPERS ============================ */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function jsq(s){ return JSON.stringify(String(s==null?'':s)); }
@@ -1979,8 +2286,8 @@ function renderAudit(){
 function clearAudit(){ if(!confirm('Clear the local audit history? This does not change staff or movement data. Export a backup first if you want to keep it.')) return; state.audit=[]; persist(); renderAudit(); }
 
 /* ============================ REBUILD ============================ */
-function rebuildCalc(){ renderDashboard(); renderManagerActions(); renderGaps(); renderBudget(); renderPlanner(); renderTimeline(); renderAudit(); }
-function rebuildAll(){ applyBranding(); renderDashControls(); renderGapsControls(); renderBudgetControls(); renderPlannerControls(); renderTimelineControls(); updateDatalist(); renderMovements(); renderStaff(); renderSettings(); renderDashboard(); renderManagerActions(); renderGaps(); renderBudget(); renderPlanner(); renderTimeline(); renderAudit(); }
+function rebuildCalc(){ renderRotations(); renderDashboard(); renderManagerActions(); renderGaps(); renderBudget(); renderPlanner(); renderTimeline(); renderAudit(); }
+function rebuildAll(){ applyBranding(); renderRotations(); renderDashControls(); renderGapsControls(); renderBudgetControls(); renderPlannerControls(); renderTimelineControls(); updateDatalist(); renderMovements(); renderStaff(); renderSettings(); renderDashboard(); renderManagerActions(); renderGaps(); renderBudget(); renderPlanner(); renderTimeline(); renderAudit(); }
 
 /* ============================ INIT ============================ */
 (async function init(){
